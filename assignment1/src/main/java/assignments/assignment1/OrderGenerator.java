@@ -35,7 +35,39 @@ public class OrderGenerator {
      * @return String Order ID dengan format sesuai pada dokumen soal
      */
     public static String generateOrderID(String namaRestoran, String tanggalOrder, String noTelepon) {
-        // TODO:Lengkapi method ini sehingga dapat mengenerate Order ID sesuai ketentuan
+        // Buat variabel order id untuk menyimpan order id yang akan dikembalikan
+        String orderID = "";
+
+        // Untuk mengecek jumlah karakter order id ketika ditambahkan nama restoran
+        int count = 0;
+
+        // Menambahkan nama restoran pada order id
+        for (int i = 0; i < namaRestoran.length(); i++) {
+            if (count == 4) {
+                break;
+            }
+
+            if (namaRestoran.charAt(i) == ' ') {
+                continue;
+            }
+
+            // Menambahkan karakter nama restoran dan count
+            orderID += namaRestoran.charAt(i);
+            count += 1;
+        } 
+
+        // Menambahkan tanggal pada kode order id
+        for (int i = 0; i < tanggalOrder.length(); i++) {
+            if (namaRestoran.charAt(i) == '/') {
+                continue;
+            }
+
+            orderID += namaRestoran.charAt(i);
+        }
+
+        
+        
+
         return "TP";
     }
 
