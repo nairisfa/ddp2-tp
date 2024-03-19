@@ -1,5 +1,6 @@
 package assignments.assignment1;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Scanner;
@@ -31,120 +32,184 @@ public class OrderGenerator {
     }
 
     /*
-     * Method untuk membuat checksum
-     */
-    public static String generateChecksum(String orderId) {
-        int firstChar = 0;
-        int secondChar = 0;
-
-        for (int i = 0; i < orderId.length(); i++) {
-            char currentChar = orderId.charAt(i);
-
-            int currentCode = currentChar - 48;  // Dikurangi karakter '0'
-
-            if (currentCode > 9) {
-                currentCode -= 7;  // Jika karakter adalah huruf besar, maka akan dikurangi lagi 7 agar cocok
-            }
-
-            if (i % 2 == 0) {
-                firstChar += currentCode;
-            } else {
-                secondChar += currentCode;
-            }
-        }
-
-        // Lakukan mod 36
-        firstChar %= 36;
-        secondChar %= 36;
-
-        // Kembalikan kode menjadi ascii
-        firstChar += 48;
-        secondChar += 48;
-
-        if (firstChar > 57) {
-            firstChar += 7;
-        }
-
-        if (secondChar > 57) {
-            secondChar += 7;
-        }
-
-        // Mengembalikan order id dengan checksum
-        return orderId + Character.toString(firstChar) + Character.toString(secondChar);
-    }
-
-    /*
-     * Method ini digunakan untuk memvalidasi tanggal
-     */
-    public static boolean checkDate(String tanggal) {
-        // Set tanggal ke null
-        Date date = null;
-
-        // Jika tanggal berhasil diformat maka tanggal memiliki format yang benar
-        try {
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("DD/MM/YYYY");
-            date = simpleDateFormat.parse(tanggal);
-        } catch (Exception e) {}
-
-        return date != null;
-    }
-
-    /*
      * Method ini digunakan untuk membuat ID
      * dari nama restoran, tanggal order, dan nomor telepon
      * 
      * @return String Order ID dengan format sesuai pada dokumen soal
      */
     public static String generateOrderID(String namaRestoran, String tanggalOrder, String noTelepon) {
-        // Buat variabel order id untuk menyimpan order id yang akan dikembalikan
-        String orderID = "";
+        // Buat variabel untuk membentuk order id
+        StringBuilder orderId = new StringBuilder();
 
-        // Untuk mengecek jumlah karakter order id ketika ditambahkan nama restoran
-        int count = 0;
+        // Ubah semua karakter menjadi lowercase
+        namaRestoran = namaRestoran.toUpperCase();
 
-        // Menambahkan nama restoran pada order id
+        // Loop untuk membaca nama restoran dan menambahkan informasinya ke order id
         for (int i = 0; i < namaRestoran.length(); i++) {
-            if (count == 4) {
+
+            // Jika order id telah mencapai empat karakter, maka loop akan stop
+            if (orderId.length() == 4) {
                 break;
             }
 
-            if (namaRestoran.charAt(i) == ' ') {
-                continue;
-            }
+            char currentChar = namaRestoran.charAt(i);
 
-            // Menambahkan karakter nama restoran dan count
-            orderID += namaRestoran.charAt(i);
-            count += 1;
-        } 
+            // Menambahkan karakter saat ini ke orderId
+            orderId.append(currentChar);
+        }
 
-        // Menambahkan tanggal pada kode order id
+        // Masukkan data tanggal pada order id
         for (int i = 0; i < tanggalOrder.length(); i++) {
+
+            // Karakter '/' dikecualikan
             if (tanggalOrder.charAt(i) == '/') {
                 continue;
             }
 
-            // Menambahkan angka
-            orderID += tanggalOrder.charAt(i);
+            orderId.append(tanggalOrder.charAt(i));
         }
 
-        // Menambahkan 2 kode dari nomor telepon
-        long jumlah = 0;
+        int jumlahNomorTelp = 0;
 
         for (int i = 0; i < noTelepon.length(); i++) {
-            jumlah += noTelepon.charAt(i) - 48;  // Dikurangi kode dari '0' karena charAt berpatokan pada ascii
+
+            // Karakter digit pertama (0) memiliki kode 48 pada Ascii, sehingga untuk memparse digit 0-9
+            // kita dapat mengurangi karakter saat ini dengan 48.
+            jumlahNomorTelp += noTelepon.charAt(i) - 48;
+
         }
 
-        // Lakukan modulo 100
-        jumlah %= 100;
+        // Tambahkan kode nomor telepon yang sudah diformat
+        orderId.append(String.format("%02d", jumlahNomorTelp));
 
-        // Menambahkan kode nomor telepon
-        orderID += String.format("%02d", jumlah);
-
-        // Membuat semua order id menjadi huruf besar sekaligus menambahkan checksum
-        orderID = generateChecksum(orderID.toUpperCase());
-
-        return orderID;
+        return checksumGenerator(orderId.toString());
     }
+
+    public static String checksumGenerator(String orderIdNoChecksum) {
+        StringBuilder sb = new StringBuilder(orderIdNoChecksum);
+
+        int checksum1 = 0;
+        int checksum2 = 0;
+
+        for (int i = 0; i < sb.length(); i++ ) {
+            char currentChar = sb.charAt(i);
+
+            // Mengecek apakah termasuk ke indeks genap atau ganjil
+            if (i % 2 != 0) {
+                checksum1 += encodeCode(currentChar);
+            } else {
+                checksum2 += encodeCode(currentChar);
+            }
+        }
+
+        // Melakukan modulo 36
+        checksum1 %= 36;
+        checksum2 %= 36;
+
+        // Melakukan decode dan menambahkan kode checksum ke order id
+        sb.append(decodeCode(checksum2));
+        sb.append(decodeCode(checksum1));
+
+        // Mengembalikan order id
+        return sb.toString();
+    }
+
+    public static boolean checksumValidator(String orderId) {
+        // Pengecekan checksum
+
+        // Melakukan pemisahan antara order id asli dan checksum
+        String orderIdNoChecksum = orderId.substring(0, 14);
+        String checksumChars = orderId.substring(14);
+
+        // Mengembalikan apakah orderid asli atau tidak
+        return checksumGenerator(orderIdNoChecksum).equals(orderIdNoChecksum + checksumChars);
+    }
+
+    public static String getDate(String orderId) throws Exception {
+        // Fungsi untuk mengembalikan tanggal dari order id
+
+        String dateString = orderId.substring(4, 12);
+
+        // Memformat tanggal
+        dateString = String.format("%s/%s/%s", dateString.substring(0,2), dateString.substring(2, 4), dateString.substring(4, 8));
+
+        // Mengecek tanggal
+        if (!dateChecker(dateString)) {
+            throw new Exception();
+        }
+
+        // Mereturn tanggal
+        return dateString;
+    }
+
+    public static boolean dateChecker(String tanggalOrder) {
+        // Fungsi untuk mengecek format tanggal
+
+        // Cek karakter slash ('/') pada tanggal
+        if (tanggalOrder.charAt(2) != '/' || tanggalOrder.charAt(5) != '/') {
+            return false;
+        }
+
+        int tanggal;
+        int bulan;
+        int tahun;
+
+        try {
+            tanggal = Integer.parseInt(tanggalOrder.substring(0, 2));
+            bulan = Integer.parseInt(tanggalOrder.substring(3, 5));
+            tahun = Integer.parseInt(tanggalOrder.substring(6));
+
+            if (tanggal > 31 || tanggal < 0 || bulan > 12 || bulan < 0 || tahun < 0) {
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static boolean orderIdValidator(String orderId) {
+        // Mengecek checksum
+        if (!checksumValidator(orderId)) {
+            return false;
+        }
+
+        // Mengecek tanggal
+        try {
+            getDate(orderId);
+        } catch (Exception ignored) {
+            return false;
+        }
+
+        // Mengembalikan nilai true jika berhasil melewati semua pengecekan
+        return true;
+    }
+
+
+    public static int encodeCode(char c) {
+        // Cek apakah karakter adalah digit atau huruf besar (asumsi input user selalu alfanumerik).
+        if (c <= 57) {  // Jika digit
+            c -= 48;  // Dikurang dengan kode ascii '0'
+        } else {  // Jika huruf besar
+            c -= 55;  // Dikurang dengan kode ascii 'A' + 10
+        }
+
+        return c;
+    }
+
+    public static char decodeCode(int i) {
+        // Cek apakah kode termasuk digit atau huruf
+
+        if (i < 10) {  // Apabila kode termasuk digit
+            i += 48;  // Menambahkan 48 untuk mengubahnya kembali ke bentuk digit dalam kode ascii
+        } else {  // Apabila kode termasuk huruf
+            i += 55;  // Menambahkan 55 untuk mengubahnya kembali ke bentuk huruf besar dalam kode ascii
+        }
+        return (char) i;
+    }
+
+
 
     /*
      * Method ini digunakan untuk membuat bill
@@ -158,15 +223,11 @@ public class OrderGenerator {
      *          Biaya Ongkos Kirim: [Total Ongkos Kirim]
      */
     public static String generateBill(String OrderID, String lokasi){
-        // Ambil tanggal pemesanan
-        String tanggalOrder = OrderID.substring(4, 6) + "/" + OrderID.substring(6, 8) + "/" + OrderID.substring(8, 12);
 
-        // Menghitung biaya ongkir berdasarkan lokasi
-        String biayaOngkir = "";
+        String biayaOngkir;
 
-        lokasi = lokasi.toUpperCase();
-
-        switch (lokasi) {
+        // Mengecek biaya ongkir sekaligus mengecek lokasi pengiriman
+        switch (lokasi.toUpperCase()) {
             case "P":
                 biayaOngkir = "Rp 10.000";
                 break;
@@ -182,159 +243,156 @@ public class OrderGenerator {
             case "B":
                 biayaOngkir = "Rp 60.000";
                 break;
+            default:
+                biayaOngkir = "";
+                break;
         }
 
-        // Mengembalikan bill
-        return String.format("Bill:\n" +
-                "Order ID: %s\n" +
-                "Tanggal Pemesanan: %s\n" +
-                "Lokasi Pengiriman: %s\n" +
-                "Biaya Ongkos Kirim: %s\n", OrderID, tanggalOrder, lokasi, biayaOngkir);
+        // Mengambil tanggal pemesanan
+        String tanggalPemesanan = "";
+        try {
+            tanggalPemesanan = getDate(OrderID);
+        } catch (Exception ignored) {}
+
+        return String.format(
+                "Bill:\nOrder ID: %s\nTanggal Pemesanan: %s\nLokasi Pengiriman: %s\nBiaya Ongkos Kirim: %s\n",
+                OrderID,
+                tanggalPemesanan,
+                lokasi.toUpperCase(),
+                biayaOngkir
+        );
     }
 
     public static void main(String[] args) {
-        // Cetak menu awal
+        // TODO: Implementasikan program sesuai ketentuan yang diberikan
         showMenu();
 
         while (true) {
-            System.out.println("-----------------------------------");
+            System.out.println("--------------------------------");
             System.out.print("Pilihan menu: ");
 
-            // Meminta input menu
             int menu = input.nextInt();
 
-            // Mereset input sebelumnya
+            // Melakukan reset untuk meminta input nextLine
             input.nextLine();
 
-            // Jika menu == 3, program akan berhenti
-            if (menu == 3) {
-                System.out.println("Terima kasih telah menggunakan DepeFood!");
-                break;
-            }
-
-            // Menampilkan menu pertama
             if (menu == 1) {
-
-                // Mengambil data nama restoran, tanggal order dan nomor telepon
                 String namaRestoran;
                 String tanggalOrder;
                 String noTelepon;
 
+                // Menanyakan nama restoran
                 while (true) {
                     System.out.print("Nama Restoran: ");
-                    namaRestoran = input.nextLine();
+                    namaRestoran = input.nextLine().toUpperCase();
 
-                    // Mengecek jumlah karakter pada nama restoran
-                    int characterCount = 0;
+                    StringBuilder namaRestoranNoWhitespace = new StringBuilder();
 
+                    // Memotong whitespace pada nama restoran
                     for (int i = 0; i < namaRestoran.length(); i++) {
-                        if (characterCount >= 4) {
-                            break;
-                        }
-
                         if (namaRestoran.charAt(i) != ' ') {
-                            characterCount++;
+                            namaRestoranNoWhitespace.append(namaRestoran.charAt(i));
                         }
                     }
 
-                    // Jika jumlah karakter lebih dari 4 huruf, maka program akan berhenti. Jika
-                    // sebaliknya, maka program akan lanjut
-                    if (characterCount >= 4) {
-                        break;
-                    } else {
-                        System.out.println("Nama Restoran tidak valid!\n");
+                    namaRestoran = namaRestoranNoWhitespace.toString();
+
+                    if (namaRestoran.length() < 4) {
+                        System.out.println("Nama Restoran tidak valid\n");
+                        continue;
                     }
+
+                    // Menghentikan loop apabila nama restoran sudah valid
+                    break;
                 }
 
-                // Meminta tanggal order
+                // Menanyakan tanggal pemesanan
                 while (true) {
-                    System.out.print("Tanggal Pemesanan: ");
+                    System.out.print("Tanggal pemesanan: ");
                     tanggalOrder = input.nextLine();
 
-                    // Jika format tanggal sudah benar, maka program akan berhenti meminta tnaggal
-                    if (checkDate(tanggalOrder)) {
-                        break;
+                    if (!dateChecker(tanggalOrder)) {
+                        System.out.println("Tanggal Pemesanan dalam format DD/MM/YYYY!\n");
+                        continue;
                     }
 
-                    System.out.println("Tanggal Pemesanan dalam format DD/MM/YYYY!\n");
+                    break;
                 }
 
-                // Meminta nomor hp
-                while(true) {
-                    System.out.print("No. Telpon: ");
+                // Menanyakan nomor hp
+                while (true) {
+                    System.out.print("No. telepon: ");
                     noTelepon = input.nextLine();
 
-                    // Melakukan pengecekan apakah nomor telepon merupakan angka dan bilangan positif
+                    // Cek apakah nomor hp valid
                     try {
-                        long notelp = Long.parseLong(noTelepon);
+                        long num = Long.parseLong(noTelepon);
 
-                        if (notelp > 0) {
+                        if (num > 0) {
                             break;
                         }
-                    } catch (Exception e) {}
+                    } catch (NumberFormatException ignored) {}
 
-                    System.out.println("Harap masukkan nomor telepon dalam bentuk bilangan bulat positif.\n");
+                    System.out.println("Harap masukan nomor telepon dalam bentuk bilangan bulat positif.\n");
                 }
 
-                // Melakukan print output order id
-                System.out.println(generateOrderID(namaRestoran, tanggalOrder, noTelepon));
+                // Memparse informasi dari user untuk dijadikan order ID
+                String orderId = generateOrderID(namaRestoran, tanggalOrder, noTelepon);
+
+                String order = String.format("Order ID %s diterima!\n", orderId);
+
+                System.out.println(order);
 
             } else if (menu == 2) {
-                String orderId;
-                String tanggalOrder;
-                String lokasi;
 
-                // Minta input order id
-                while (true) {
-                    System.out.print("Order ID: ");
-                    orderId = input.nextLine();
+                // Meminta order id
+                System.out.print("Order ID: ");
+                String orderId = input.nextLine();
 
-                    // Melakukan pengecekan jumlah karakter
-                    if (orderId.length() < 16) {
-                        System.out.println("Order ID minimal 16 karakter");
-                        continue;
-                    }
-
-                    // Mengambil tanggal order
-                    tanggalOrder = orderId.substring(4, 6) + "/" + orderId.substring(6, 8) + "/" + orderId.substring(8, 12);
-
-                    // Validasi order id
-                    String noChecksum = orderId.substring(0, orderId.length() - 2);
-                    String checksum = orderId.substring(orderId.length() - 2);
-
-                    // Mengecek checksum dan kevalidan tanggal
-                    if (!checksum.equals(generateChecksum(noChecksum)) || !checkDate(tanggalOrder)) {
-                        System.out.println("Silahkan masukkan Order ID yang valid!");
-                        continue;
-                    }
-
-                    break;
+                // Melakukan pengecekan order id
+                if (orderId.length() != 16) {
+                    System.out.println("Order ID harus 16 karakter\n");
+                    continue;
+                } else if (checksumValidator(orderId)) {
+                    System.out.println("Silahkan masukkan Order ID yang valid!\n");
+                    continue;
                 }
 
+                // Meminta lokasi pengiriman
+                System.out.print("Lokasi Pengiriman: ");
+                String lokasiPengiriman = input.nextLine();
 
-                // Minta lokasi pengiriman pada user
-                while (true) {
-                    System.out.print("Lokasi Pengiriman: ");
-                    lokasi = input.nextLine().toUpperCase();
+                boolean isLokasiValid = false;
 
-                    // Mengecek apakah lokasi yang diminta terdapat pada daftar lokasi
-                    if (!(lokasi.equals("P") || lokasi.equals("U") || lokasi.equals("S") || lokasi.equals("T") || lokasi.equals("B"))) {
-                        System.out.println("Harap masukkan lokasi pengiriman yang ada pada jangkauan!\n");
-                        continue;
+                // Pengecekan lokasi pengiriman
+                String[] daftarLokasi = {"P", "U", "T", "S", "B"};
+                for (String lok: daftarLokasi) {
+                    if (lokasiPengiriman.toUpperCase().equals(lok)) {
+                        isLokasiValid = true;
+                        break;
                     }
-
-                    break;
                 }
 
-                System.out.println("-----------------------------------");
-                System.out.println("Pilih menu:");
-                System.out.println("1. Generate Order ID");
-                System.out.println("2. Generate Bill");
-                System.out.println("3. Keluar");
+                // Apabila lokasi pengiriman tidak terdaftar program akan mengulang pertanyaan
+                if (!isLokasiValid) {
+                    System.out.println("Harap masukkan lokasi pengiirman yang ada pada jangkauan!\n");
+                    continue;
+                }
+
+                System.out.println(generateBill(orderId, lokasiPengiriman));
+
+            } else {
+                System.out.println("Terima kasih telah menggunakan DepeFood!");
+                break;
             }
 
-        }
+            System.out.println();
 
+            System.out.println("Pilih menu:");
+            System.out.println("1. Generate Order ID");
+            System.out.println("2. Generate Bill");
+            System.out.println("3. Keluar");
+        }
     }
 
     
